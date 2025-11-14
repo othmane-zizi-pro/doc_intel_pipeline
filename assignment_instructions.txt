@@ -1,0 +1,41 @@
+
+Hide Assignment Information
+Group Category
+Peer Groups
+Group Name
+Group 13
+Instructions
+Assignment: Document Intelligence Pipeline for Legal Analytics
+Scenario:
+You are assisting a legal firm in automating the ingestion and analysis of diverse documents including invoices, contracts, meeting minutes, and emails. All are provided in PDF format.
+Objective:
+The firm seeks to conduct a Proof of Concept (POC) to digitize and streamline its data ingestion and organization process. The goal is to extract metadata and key information from documents for subsequent analytics and retrieval activities (e.g., reporting, search, summarization, and aggregation).
+Deliverables
+1. Presentation Slides (2 Slides Total)
+A. High-Level Overview
+Summarize the problem and your proposed solution.
+Highlight the technical stack you plan to use.
+Present a platform-level view showing how your approach addresses the firm’s needs.
+B. Detailed Execution Pipeline
+Illustrate the step-by-step pipeline design, from document ingestion to data storage.
+Show how the pipeline is modular and scalable (e.g., ingestion, classification, extraction, transformation, storage).
+Explain how the extracted data can be used for downstream applications such as reporting, search, and summarization.
+ 
+2. Python Prototype (LLM Workflow)
+Develop a Python-based LLM workflow that:
+Ingests and processes PDF documents.
+Classifies them by type (e.g., contract, invoice, email).
+Extracts structured fields such as:
+Client Name
+Invoice Amount
+Date(s)
+Involved Parties
+You are responsible for defining the data schema/structure for the extracted information.
+The focus is on demonstrating the core workflow logic, not building a production-grade system. 
+ 
+Expected Output
+Three clear and well-designed slides explaining
+Your technical architecture for the POC
+Your proposed technical architecture beyond the POC
+Approach to the data pipeline
+A working Python notebook or script that demonstrates the ingestion, classification, and extraction workflow

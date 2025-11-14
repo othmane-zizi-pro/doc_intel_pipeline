@@ -1,0 +1,29 @@
+Extract structured information from the following meeting minutes document.
+
+DOCUMENT TEXT:
+{text}
+
+Extract and return ONLY a JSON object with these fields (no other text before or after):
+
+{{
+  "meeting_date": "date of the meeting in YYYY-MM-DD format",
+  "meeting_title": "meeting title or topic",
+  "attendees": ["person 1 name", "person 2 name", "etc"],
+  "agenda_items": ["agenda item 1", "agenda item 2", "etc"],
+  "decisions": ["decision 1 made during meeting", "decision 2", "etc"],
+  "action_items": [
+    {{"task": "description of task", "assignee": "person responsible", "deadline": "when due"}},
+    {{"task": "another task", "assignee": "person", "deadline": "date"}}
+  ],
+  "next_meeting": "date of next scheduled meeting if mentioned",
+  "involved_parties": ["all attendees and people mentioned"]
+}}
+
+IMPORTANT RULES:
+- attendees should list all people who attended the meeting
+- involved_parties should include attendees plus anyone mentioned in discussions
+- agenda_items should list the topics that were discussed
+- decisions should capture key decisions made (not discussion, just the decisions)
+- action_items should clearly identify the task, who is responsible, and deadline if mentioned
+- If a field cannot be found, use null for single values or empty array [] for lists
+- Dates should be in YYYY-MM-DD format when possible

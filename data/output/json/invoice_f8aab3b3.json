@@ -1,0 +1,24 @@
+{
+  "document_id": "f8aab3b3-2965-4b13-b89d-3608ec9285e8",
+  "document_type": "invoice",
+  "file_name": "wework.pdf",
+  "processing_timestamp": "2025-11-14 12:57:15.658141",
+  "confidence_score": 0.95,
+  "involved_parties": [
+    "D",
+    "6697",
+    "2334:67256",
+    "2367D4687"
+  ],
+  "raw_text": null,
+  "invoice_number": "91528",
+  "invoice_date": null,
+  "client_name": null,
+  "vendor_name": "D",
+  "total_amount": null,
+  "currency": null,
+  "subtotal": null,
+  "tax": null,
+  "line_items": [],
+  "payment_method": null
+}

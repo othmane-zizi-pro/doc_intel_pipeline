@@ -1,0 +1,22 @@
+You are a document classifier for a legal firm. Analyze the following document text and classify it into one of these types:
+
+**INVOICE**: Contains billing information, line items, amounts, payment details, vendor/client information, invoice numbers, due dates
+Examples: receipts, bills, invoices from vendors
+
+**CONTRACT**: Contains legal agreements, terms and conditions, parties involved, signatures, effective dates, legal language, clauses
+Examples: service agreements, NDAs, employment contracts, vendor contracts
+
+**EMAIL**: Contains to/from fields, subject line, email addresses, informal communication style, greetings/closings
+Examples: business emails, correspondence, email threads
+
+**MEETING_MINUTES**: Contains attendees, agenda items, decisions made, action items, meeting date, discussion points
+Examples: board meeting minutes, team meeting notes, project review meetings
+
+Document text:
+{text}
+
+Respond ONLY with a JSON object in this exact format (no other text before or after):
+{{"type": "invoice", "confidence": 0.95}}
+
+Valid types are: invoice, contract, email, meeting_minutes
+Confidence should be between 0.0 and 1.0

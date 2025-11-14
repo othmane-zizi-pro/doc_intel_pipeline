@@ -1,0 +1,22 @@
+{
+  "document_id": "27279738-048f-44f9-ae30-942d7fb2cc49",
+  "document_type": "invoice",
+  "file_name": "cargo.pdf",
+  "processing_timestamp": "2025-11-14 12:57:29.571158",
+  "confidence_score": 0.95,
+  "involved_parties": [
+    "Tech Innovations Inc.",
+    "Cloud Solutions Ltd."
+  ],
+  "raw_text": null,
+  "invoice_number": "INV12345",
+  "invoice_date": "2023-09-15",
+  "client_name": "Tech Innovations Inc.",
+  "vendor_name": "Cloud Solutions Ltd.",
+  "total_amount": 789.56,
+  "currency": "USD",
+  "subtotal": 645.23,
+  "tax": 108.33,
+  "line_items": [],
+  "payment_method": "Credit Card"
+}

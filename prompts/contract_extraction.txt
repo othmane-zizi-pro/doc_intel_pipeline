@@ -1,0 +1,27 @@
+Extract structured information from the following contract document.
+
+DOCUMENT TEXT:
+{text}
+
+Extract and return ONLY a JSON object with these fields (no other text before or after):
+
+{{
+  "contract_id": "contract reference number or ID",
+  "contract_date": "contract signing date in YYYY-MM-DD format",
+  "parties": ["party 1 name", "party 2 name", "etc"],
+  "contract_value": the total contract value as a number,
+  "currency": "currency code like USD, CAD, EUR",
+  "effective_date": "when the contract takes effect (YYYY-MM-DD)",
+  "expiry_date": "when the contract expires (YYYY-MM-DD)",
+  "key_terms": "brief summary of the most important contract terms",
+  "contract_type": "type of contract (service agreement, NDA, employment, etc)",
+  "involved_parties": ["all parties and individuals mentioned"]
+}}
+
+IMPORTANT RULES:
+- parties should list the main contracting entities
+- involved_parties should include all people and organizations mentioned
+- For contract_value, extract only the numeric value
+- If a field cannot be found, use null
+- Dates should be in YYYY-MM-DD format when possible
+- key_terms should be a brief summary (1-2 sentences)

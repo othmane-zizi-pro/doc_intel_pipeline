@@ -1,0 +1,22 @@
+{
+  "document_id": "359e6161-8a4c-4766-bbea-cf1588be2777",
+  "document_type": "invoice",
+  "file_name": "uber.pdf",
+  "processing_timestamp": "2025-11-14 12:57:23.123438",
+  "confidence_score": 0.95,
+  "involved_parties": [
+    "ABC Corporation",
+    "XYZ Services Inc."
+  ],
+  "raw_text": null,
+  "invoice_number": "INV12345",
+  "invoice_date": "2023-10-05",
+  "client_name": "ABC Corporation",
+  "vendor_name": "XYZ Services Inc.",
+  "total_amount": 798.56,
+  "currency": "USD",
+  "subtotal": 750.0,
+  "tax": 48.56,
+  "line_items": [],
+  "payment_method": "Credit Card"
+}

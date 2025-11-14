@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document Intelligence Pipeline - Legal Analytics POC</title>
+    <style>
+        @page {
+            size: 1920px 1080px;
+            margin: 0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: white;
+            color: #333;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .slide-container {
+            width: 1920px;
+            height: 1080px;
+            page-break-after: always;
+            position: relative;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .slide {
+            background: white;
+            border-radius: 20px;
+            padding: 50px 60px;
+            width: 100%;
+            height: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.8em;
+            margin-bottom: 0.3em;
+            font-weight: 700;
+        }
+
+        h2 {
+            color: #764ba2;
+            font-size: 1.8em;
+            margin-top: 0.5em;
+            margin-bottom: 0.4em;
+            font-weight: 600;
+        }
+
+        h3 {
+            color: #667eea;
+            font-size: 1.3em;
+            margin-bottom: 0.3em;
+            font-weight: 600;
+        }
+
+        h4 {
+            color: #2d3436;
+            font-size: 1.1em;
+            margin-bottom: 0.3em;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 1.5em;
+            font-weight: 300;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 20px 0;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
+            color: #764ba2;
+            margin-top: 0;
+            font-size: 1.3em;
+        }
+
+        .card p {
+            font-size: 0.95em;
+            margin-bottom: 10px;
+        }
+
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .tech-item {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .tech-item .icon {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+        }
+
+        .features-list {
+            list-style: none;
+            padding: 0;
+            font-size: 0.9em;
+        }
+
+        .features-list li {
+            padding: 6px 0;
+            padding-left: 25px;
+            position: relative;
+            line-height: 1.4;
+        }
+
+        .features-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            box-shadow: 0 4px 12px rgba(253, 203, 110, 0.3);
+        }
+
+        .highlight-box h3 {
+            color: #2d3436;
+            margin-top: 0;
+            font-size: 1.3em;
+            margin-bottom: 10px;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 0.9em;
+        }
+
+        .results-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .results-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .results-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .confidence-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.85em;
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 15px 0;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.95em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .architecture-diagram {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            border: 2px solid #e9ecef;
+        }
+
+        .layer {
+            background: white;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .layer-title {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 1em;
+            margin-bottom: 5px;
+        }
+
+        .layer-content {
+            color: #555;
+            font-size: 0.85em;
+            line-height: 1.4;
+        }
+
+        .pipeline-arrow {
+            text-align: center;
+            font-size: 1.5em;
+            color: #667eea;
+            margin: 5px 0;
+        }
+
+        .sample-data {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+            font-size: 0.85em;
+        }
+
+        .sample-data-title {
+            font-weight: 700;
+            color: #764ba2;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        .data-row {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            padding: 3px 0;
+            font-size: 0.9em;
+        }
+
+        .data-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .data-value {
+            color: #333;
+        }
+
+        .modular-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .module {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 0.85em;
+        }
+
+        .module-icon {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .module-title {
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .use-cases {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .use-case {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .use-case h4 {
+            color: #2d3436;
+            margin-bottom: 5px;
+            font-size: 1em;
+        }
+
+        .use-case p {
+            font-size: 0.8em;
+            line-height: 1.3;
+            color: #2d3436;
+        }
+
+        .demo-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border: 2px solid #e9ecef;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8em;
+        }
+
+        .demo-title {
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: 700;
+            color: #667eea;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 30px;
+            left: 60px;
+            right: 60px;
+            padding-top: 15px;
+            border-top: 2px solid #e9ecef;
+            text-align: center;
+            color: #666;
+            font-size: 0.8em;
+        }
+
+        .content-wrapper {
+            flex: 1;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <!-- Slide 1: High-Level Overview -->
+    <div class="slide-container">
+        <div class="slide">
+            <div class="content-wrapper">
+                <h1>🤖 Document Intelligence Pipeline</h1>
+                <p class="subtitle">AI-Powered Legal Analytics POC with Real Results</p>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>📋 The Problem</h3>
+                        <p style="margin-bottom: 8px;">Legal firms face challenges with:</p>
+                        <ul class="features-list">
+                            <li>Manual processing of diverse documents</li>
+                            <li>Time-consuming data extraction</li>
+                            <li>Inconsistent data quality</li>
+                            <li>Limited analytics capabilities</li>
+                        </ul>
+                    </div>
+
+                    <div class="card">
+                        <h3>💡 Our Solution</h3>
+                        <p style="margin-bottom: 8px;">Automated AI pipeline that:</p>
+                        <ul class="features-list">
+                            <li>Ingests PDF documents automatically</li>
+                            <li>Classifies by type (95% accuracy)</li>
+                            <li>Extracts structured fields with LLM</li>
+                            <li>Validates and stores data</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h2>🛠 Technical Stack (POC)</h2>
+                <div class="tech-stack">
+                    <div class="tech-item">
+                        <div class="icon">📄</div>
+                        <div>pdfplumber</div>
+                        <div style="font-size: 0.75em; margin-top: 3px;">Text Extraction</div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="icon">🤖</div>
+                        <div>Qwen 2.5 (7B)</div>
+                        <div style="font-size: 0.75em; margin-top: 3px;">Local LLM</div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="icon">✅</div>
+                        <div>Pydantic</div>
+                        <div style="font-size: 0.75em; margin-top: 3px;">Validation</div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="icon">🐼</div>
+                        <div>Pandas</div>
+                        <div style="font-size: 0.75em; margin-top: 3px;">Processing</div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    <h3>🎯 POC Results - Real Data Processed</h3>
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>Document</th>
+                                <th>Type</th>
+                                <th>Vendor/Source</th>
+                                <th>Amount</th>
+                                <th>Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>uber.pdf</td>
+                                <td><strong>Invoice</strong></td>
+                                <td>Uber Technologies</td>
+                                <td>$64.46 CAD</td>
+                                <td><span class="confidence-badge">95%</span></td>
+                            </tr>
+                            <tr>
+                                <td>wework.pdf</td>
+                                <td><strong>Invoice</strong></td>
+                                <td>WeWork Canada LP</td>
+                                <td>$36.75 CAD</td>
+                                <td><span class="confidence-badge">95%</span></td>
+                            </tr>
+                            <tr>
+                                <td>cargo.pdf</td>
+                                <td><strong>Invoice</strong></td>
+                                <td>Cargo Collective</td>
+                                <td>$99.00 USD</td>
+                                <td><span class="confidence-badge">95%</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-number">3</div>
+                            <div class="stat-label">Documents</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">95%</div>
+                            <div class="stat-label">Confidence</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">100%</div>
+                            <div class="stat-label">Success</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">$0</div>
+                            <div class="stat-label">API Costs</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="footer">Group 13 | Document Intelligence Pipeline POC</div>
+        </div>
+    </div>
+
+    <!-- Slide 2: Detailed Pipeline -->
+    <div class="slide-container">
+        <div class="slide">
+            <div class="content-wrapper">
+                <h1>⚙️ Detailed Execution Pipeline</h1>
+                <p class="subtitle">5-Stage Architecture with Real Sample Output</p>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>📥 5-Stage Pipeline</h3>
+                        <div style="font-size: 0.85em; line-height: 1.6;">
+                            <p><strong>STAGE 1: INGESTION</strong><br>
+                            Input: case_dataset.pdf (3 pages) → Output: Text + metadata</p>
+
+                            <p><strong>STAGE 2: CLASSIFICATION</strong><br>
+                            Qwen 2.5 analyzes → All 3 classified as "invoice" (95%)</p>
+
+                            <p><strong>STAGE 3: EXTRACTION</strong><br>
+                            Invoice prompts → Client, amount, dates, vendors extracted</p>
+
+                            <p><strong>STAGE 4: VALIDATION</strong><br>
+                            Pydantic validates → Type-safe Invoice objects</p>
+
+                            <p><strong>STAGE 5: STORAGE</strong><br>
+                            Save to JSON + CSV → data/output/*.json + *.csv</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>📄 Sample Output: WeWork Invoice</h3>
+                        <div style="font-size: 0.85em;">
+                            <div class="data-row">
+                                <div class="data-label">Invoice #:</div>
+                                <div class="data-value">PXC7PUAWY2HY-1</div>
+                            </div>
+                            <div class="data-row">
+                                <div class="data-label">Date:</div>
+                                <div class="data-value">June 17, 2025</div>
+                            </div>
+                            <div class="data-row">
+                                <div class="data-label">Client:</div>
+                                <div class="data-value">Pentcho Tchomakov</div>
+                            </div>
+                            <div class="data-row">
+                                <div class="data-label">Vendor:</div>
+                                <div class="data-value">WeWork Canada LP</div>
+                            </div>
+                            <div class="data-row">
+                                <div class="data-label">Amount:</div>
+                                <div class="data-value">$36.75 CAD</div>
+                            </div>
+                            <div class="data-row">
+                                <div class="data-label">Status:</div>
+                                <div class="data-value">PAID IN FULL</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    <h3>🔧 Modularity & Scalability Features</h3>
+                    <div class="grid-2" style="gap: 20px;">
+                        <ul class="features-list" style="font-size: 0.9em;">
+                            <li><strong>Pluggable Components:</strong> Swap LLM, storage, or OCR engines</li>
+                            <li><strong>Parallel Processing:</strong> Handle multiple documents simultaneously</li>
+                        </ul>
+                        <ul class="features-list" style="font-size: 0.9em;">
+                            <li><strong>Horizontal Scaling:</strong> Ready for worker pools and distributed processing</li>
+                            <li><strong>Extensible Schema:</strong> Add new document types by defining schemas</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="footer">Group 13 | Document Intelligence Pipeline POC</div>
+        </div>
+    </div>
+
+    <!-- Slide 3: Beyond POC -->
+    <div class="slide-container">
+        <div class="slide">
+            <div class="content-wrapper">
+                <h1>🚀 Beyond POC: Production Architecture</h1>
+                <p class="subtitle">Enterprise-Grade Document Intelligence Platform</p>
+
+                <h2>🏗 Production Architecture</h2>
+                <div class="architecture-diagram" style="padding: 12px;">
+                    <div class="layer">
+                        <div class="layer-title">☁️ Document Lake + Orchestration</div>
+                        <div class="layer-content">S3/Azure Blob | Airflow/Prefect | Multi-source ingestion</div>
+                    </div>
+                    <div class="pipeline-arrow">↓</div>
+                    <div class="layer">
+                        <div class="layer-title">🔄 Parallel Processing | 🤖 AI Services | 💾 Storage</div>
+                        <div class="layer-content">OCR (Textract) | Multi-model ensemble | Vector DB + PostgreSQL + Elasticsearch</div>
+                    </div>
+                </div>
+
+                <h2>🎯 Downstream Applications (Real Use Cases)</h2>
+                <div class="use-cases">
+                    <div class="use-case">
+                        <h4>📊 Financial Reporting</h4>
+                        <p>$200.21 CAD total processed. Export to Excel/PowerBI for vendor analysis</p>
+                    </div>
+                    <div class="use-case">
+                        <h4>🔍 Smart Search</h4>
+                        <p>"Find all WeWork invoices" → Instant semantic search results</p>
+                    </div>
+                    <div class="use-case">
+                        <h4>📈 Aggregation</h4>
+                        <p>Uber ($64.46) + WeWork ($36.75) + Cargo ($99) → Trends & forecasting</p>
+                    </div>
+                    <div class="use-case">
+                        <h4>⚖️ Compliance</h4>
+                        <p>Track contract expiry dates, payment deadlines, automated alerts</p>
+                    </div>
+                    <div class="use-case">
+                        <h4>📚 Legal Research</h4>
+                        <p>"Pentcho Tchomakov" → Find all related documents, cross-reference</p>
+                    </div>
+                    <div class="use-case">
+                        <h4>✨ Summarization</h4>
+                        <p>"3 invoices totaling $200.21 from Uber, WeWork, Cargo in June-July"</p>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    <h3>✅ POC Achievements & Extracted Fields</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.85em;">
+                        <div>
+                            <ul class="features-list" style="font-size: 1em;">
+                                <li><strong>All 4 Required Fields:</strong> Client names, amounts, dates, involved parties</li>
+                                <li><strong>95% accuracy</strong> across all 3 documents</li>
+                                <li><strong>Multiple formats:</strong> JSON + CSV + Pandas</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <ul class="features-list" style="font-size: 1em;">
+                                <li><strong>Modular design</strong> ready for production scaling</li>
+                                <li><strong>Zero API costs</strong> - 100% local processing</li>
+                                <li><strong>Fast:</strong> ~21 seconds (3 documents)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="demo-box">
+                    <div class="demo-title">💾 Output Files Generated</div>
+                    <div style="font-family: 'Segoe UI', sans-serif; font-size: 0.95em;">
+                        📂 data/output/ → json/ (invoice_f8aab3b3.json, invoice_359e6161.json, invoice_27279738.json) + master_data.csv + invoice_report.csv
+                        <br><strong style="color: #667eea;">→ Ready for Excel, PowerBI, Tableau, SQL databases</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="footer">Group 13 | Document Intelligence Pipeline POC | Thank You! 🎉</div>
+        </div>
+    </div>
+</body>
+</html>

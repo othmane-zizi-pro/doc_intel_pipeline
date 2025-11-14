@@ -1,0 +1,23 @@
+Extract structured information from the following email.
+
+DOCUMENT TEXT:
+{text}
+
+Extract and return ONLY a JSON object with these fields (no other text before or after):
+
+{{
+  "sender": "sender's email address or name",
+  "recipients": ["recipient1@email.com", "recipient2@email.com"],
+  "email_date": "email date in YYYY-MM-DD format",
+  "subject": "email subject line",
+  "key_points": "brief summary of the main points discussed in the email",
+  "involved_parties": ["all people mentioned or participating in the email"]
+}}
+
+IMPORTANT RULES:
+- sender should be the primary sender (From field)
+- recipients should include all To and CC recipients
+- involved_parties should include sender, recipients, and anyone mentioned in the email body
+- key_points should be a brief summary (2-3 sentences)
+- If a field cannot be found, use null
+- For email_date, extract the date the email was sent

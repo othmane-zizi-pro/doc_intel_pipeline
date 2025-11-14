@@ -1,0 +1,26 @@
+Extract structured information from the following invoice document.
+
+DOCUMENT TEXT:
+{text}
+
+Extract and return ONLY a JSON object with these fields (no other text before or after):
+
+{{
+  "invoice_number": "the invoice number or ID (string)",
+  "invoice_date": "the invoice date in YYYY-MM-DD format if possible",
+  "client_name": "the client or customer name who is being billed",
+  "vendor_name": "the vendor or company issuing the invoice",
+  "total_amount": the total amount as a number (no currency symbols),
+  "currency": "the currency code like USD, CAD, EUR, etc",
+  "subtotal": the subtotal amount as a number before taxes,
+  "tax": the tax amount as a number,
+  "payment_method": "payment method used (credit card, bank transfer, etc)",
+  "involved_parties": ["list of all parties mentioned in the document"]
+}}
+
+IMPORTANT RULES:
+- For amounts, extract only the numeric value (e.g., 64.46 not "$64.46")
+- If a field cannot be found, use null
+- Dates should be in YYYY-MM-DD format when possible
+- involved_parties should include both client and vendor names
+- Be careful to distinguish between subtotal, tax, and total amounts
