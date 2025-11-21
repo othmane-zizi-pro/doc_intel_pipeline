@@ -2,6 +2,8 @@
 
 A proof-of-concept automated document processing pipeline that ingests, classifies, and extracts structured information from legal documents (invoices, contracts, emails, meeting minutes) using local LLM technology.
 
+Live demo: https://youtu.be/FjYkf5pgP8A
+
 ## 🎯 Project Overview
 
 This pipeline demonstrates:
