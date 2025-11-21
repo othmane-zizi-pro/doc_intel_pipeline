@@ -1,39 +1,22 @@
 """
-Field extraction module using Google Gemini API.
+Field extraction using multi-model orchestration.
 """
 
-import google.generativeai as genai
-import json
 import logging
 from typing import Dict, Any
 from pathlib import Path
-from .config import GEMINI_API_KEY, GEMINI_MODEL
+
+from .orchestrator import LLMOrchestrator
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class FieldExtractor:
-    """Extracts structured fields from documents using Google Gemini API"""
+    """Extracts structured fields using orchestrated multi-model approach"""
 
-    def __init__(self, model_name: str = None, api_key: str = None):
-        """
-        Initialize the FieldExtractor with Gemini API.
-
-        Args:
-            model_name: Gemini model to use (default: from config)
-            api_key: Gemini API key (default: from config)
-        """
-        self.model_name = model_name or GEMINI_MODEL
-        self.api_key = api_key or GEMINI_API_KEY
-
-        # Configure Gemini API
-        genai.configure(api_key=self.api_key)
-        # Ensure model name doesn't have 'models/' prefix
-        model_id = self.model_name.replace('models/', '')
-        self.model = genai.GenerativeModel(model_id)
-
-        # Load extraction prompts
+    def __init__(self):
+        self.orchestrator = LLMOrchestrator()
         self.prompts = self._load_prompts()
 
     def _load_prompts(self) -> Dict[str, str]:
@@ -66,7 +49,7 @@ class FieldExtractor:
 Extract and return ONLY a JSON object with these fields:
 {{
   "invoice_number": "the invoice number or ID",
-  "invoice_date": "the invoice date",
+  "invoice_date": "the invoice date in YYYY-MM-DD format",
   "client_name": "the client or customer name",
   "vendor_name": "the vendor or company issuing invoice",
   "total_amount": the total amount as a number,
@@ -139,7 +122,7 @@ If a field is not found, use null or empty array."""
 
     def extract(self, text: str, doc_type: str) -> Dict[str, Any]:
         """
-        Extract structured fields from document text.
+        Extract structured fields using multi-model orchestration with validation.
 
         Args:
             text: The document text
@@ -154,99 +137,15 @@ If a field is not found, use null or empty array."""
             logger.error(f"No prompt found for document type: {doc_type}")
             return {}
 
-        # Create the prompt
-        prompt = prompt_template.format(text=text)
+        # Use orchestrator to extract with fallback and validation
+        extracted_data, provider = self.orchestrator.extract_with_fallback(
+            text,
+            doc_type,
+            prompt_template
+        )
 
-        try:
-            # Call Gemini API
-            generation_config = genai.GenerationConfig(
-                temperature=0.2,  # Low temperature for consistent extraction
-                top_p=1,
-                top_k=1,
-                max_output_tokens=2048,
-            )
-
-            # Configure safety settings to be less restrictive
-            from google.generativeai.types import HarmCategory, HarmBlockThreshold
-
-            safety_settings = {
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-            }
-
-            response = self.model.generate_content(
-                prompt,
-                generation_config=generation_config,
-                safety_settings=safety_settings
-            )
-
-            # Check if response was blocked
-            if not response.candidates:
-                logger.error(f"Response blocked by safety filters")
-                return {}
-
-            # Try to get text from response
-            try:
-                if response.text:
-                    response_text = response.text
-
-                    # Parse the JSON response
-                    extracted_data = self._parse_extraction_response(response_text)
-
-                    logger.info(f"Extracted {len(extracted_data)} fields from {doc_type}")
-                    return extracted_data
-            except ValueError as e:
-                logger.error(f"Response blocked or empty: {str(e)}")
-                return {}
-
-            logger.error("Empty response from Gemini API")
-            return {}
-
-        except Exception as e:
-            logger.error(f"Error during extraction: {str(e)}")
-            return {}
-
-    def _parse_extraction_response(self, response_text: str) -> Dict[str, Any]:
-        """Parse the LLM response to extract structured data"""
-        try:
-            # Try to find JSON in the response
-            start_idx = response_text.find('{')
-            end_idx = response_text.rfind('}') + 1
-
-            if start_idx != -1 and end_idx > start_idx:
-                json_str = response_text[start_idx:end_idx]
-                result = json.loads(json_str)
-                return result
-            else:
-                logger.warning("No JSON found in extraction response")
-                return {}
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing JSON from response: {str(e)}")
-            # Try to extract partial data
-            return self._fallback_parse(response_text)
-        except Exception as e:
-            logger.error(f"Error parsing extraction response: {str(e)}")
-            return {}
-
-    def _fallback_parse(self, response_text: str) -> Dict[str, Any]:
-        """Attempt to extract data even if JSON parsing fails"""
-        # This is a simple fallback - in production you'd want more sophisticated parsing
-        data = {}
-        lines = response_text.split('\n')
-
-        for line in lines:
-            if ':' in line:
-                parts = line.split(':', 1)
-                if len(parts) == 2:
-                    key = parts[0].strip().strip('"').strip()
-                    value = parts[1].strip().strip(',').strip('"')
-                    if value and value not in ['null', 'None']:
-                        data[key] = value
-
-        return data
+        logger.info(f"Extracted {len(extracted_data)} fields via {provider}")
+        return extracted_data
 
     def batch_extract(self, documents: list, doc_types: list) -> list:
         """

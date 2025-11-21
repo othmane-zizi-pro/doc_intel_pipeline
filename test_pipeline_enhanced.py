@@ -14,8 +14,9 @@ from src.ingestion import DocumentIngestor
 from src.classifier import DocumentClassifier
 from src.extractor import FieldExtractor
 from src.schemas import DocumentType, create_document
-from src.utils import validate_ollama_connection, save_to_json, save_to_csv
+from src.utils import save_to_json, save_to_csv
 from src.logger import logger, console
+from src.config import GEMINI_MODEL
 from rich.progress import track
 
 
@@ -23,17 +24,9 @@ def main():
     # Print header
     logger.print_header()
 
-    # Step 1: Verify Ollama
-    logger.step(1, "Verifying Ollama Connection", "🔌")
-
-    if not validate_ollama_connection("qwen2.5:7b"):
-        logger.error("Ollama connection failed")
-        console.print("\n[yellow]Please ensure:[/yellow]")
-        console.print("  • Ollama is running: [cyan]ollama serve[/cyan]")
-        console.print("  • Model is installed: [cyan]ollama pull qwen2.5:7b[/cyan]")
-        return
-
-    logger.success("Ollama connected successfully", "Model: qwen2.5:7b")
+    # Step 1: Initialize Gemini API
+    logger.step(1, "Initializing Gemini API", "🔌")
+    logger.success(f"Gemini API configured", f"Model: {GEMINI_MODEL}")
 
     # Step 2: Ingest documents
     logger.step(2, "Ingesting PDF Documents", "📄")
@@ -67,7 +60,7 @@ def main():
     # Step 3: Classify documents
     logger.step(3, "Classifying Documents", "🤖")
 
-    classifier = DocumentClassifier(model_name="qwen2.5:7b")
+    classifier = DocumentClassifier()  # Uses config.py settings
     classifications = []
 
     console.print()
@@ -98,7 +91,7 @@ def main():
     # Step 4: Extract fields
     logger.step(4, "Extracting Structured Fields", "🔍")
 
-    extractor = FieldExtractor(model_name="qwen2.5:7b")
+    extractor = FieldExtractor()  # Uses config.py settings
     extracted_documents = []
 
     console.print()

@@ -6,7 +6,7 @@ A proof-of-concept automated document processing pipeline that ingests, classifi
 
 This pipeline demonstrates:
 - **Automated PDF ingestion** with text extraction
-- **AI-powered classification** using Qwen 2.5 (7B) via Ollama
+- **AI-powered classification** using Google Gemini API
 - **Structured field extraction** (client names, amounts, dates, involved parties)
 - **Data validation** using Pydantic schemas
 - **Multi-format storage** (JSON, CSV) for downstream analytics
@@ -21,14 +21,14 @@ This pipeline demonstrates:
    - Involved Parties
 
 ✅ Modular architecture (easy to extend)
-✅ Local LLM (no API costs, privacy-preserving)
+✅ Cloud-based LLM via Google Gemini API
 ✅ Export-ready data for reporting and analytics
 
 ## 🛠 Technical Stack
 
 - **Language**: Python 3.10+
 - **PDF Processing**: pdfplumber
-- **LLM**: Qwen 2.5 (7B) via Ollama
+- **LLM**: Google Gemini (gemini-1.5-flash or gemini-1.5-pro)
 - **Validation**: Pydantic
 - **Data Processing**: Pandas
 - **Interface**: Jupyter Notebook
@@ -66,8 +66,8 @@ doc_intel_pipeline/
 ### Prerequisites
 
 1. **Python 3.10+**
-2. **Ollama installed** ([https://ollama.ai](https://ollama.ai))
-3. **Qwen 2.5 model** (7B)
+2. **OpenAI API Key** (Get one at [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys))
+3. **Google Gemini API Key** (Get one at [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey))
 
 ### Installation
 
@@ -78,14 +78,16 @@ cd doc_intel_pipeline
 # 2. Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Ensure Ollama is running
-ollama serve
+# 3. Configure your API keys
+# Copy the example environment file
+cp .env.example .env
 
-# 4. Verify Qwen model is installed
-ollama list | grep qwen2.5
+# Edit .env and add your API keys:
+# OPENAI_API_KEY=your_openai_key_here
+# GEMINI_API_KEY=your_gemini_key_here
 
-# If not installed:
-ollama pull qwen2.5:7b
+# 4. Run the Tier 3 pipeline
+python test_tier3.py
 ```
 
 ### Running the Pipeline
@@ -188,34 +190,35 @@ Storage Layer
 
 ### Changing LLM Model
 
-Edit model name in notebook:
+Edit model name in notebook or src/config.py:
 ```python
-classifier = DocumentClassifier(model_name="qwen2.5:14b")
-extractor = FieldExtractor(model_name="qwen2.5:14b")
+# In notebook or scripts:
+classifier = DocumentClassifier(model_name="gemini-1.5-pro")  # Use pro for better quality
+extractor = FieldExtractor(model_name="gemini-1.5-pro")
+
+# Or edit GEMINI_MODEL in src/config.py:
+GEMINI_MODEL = "gemini-1.5-pro"  # Options: "gemini-1.5-flash", "gemini-1.5-pro"
 ```
 
 ## 📈 Performance
 
 On the sample 3-page PDF (3 invoices):
 - Ingestion: ~1 second
-- Classification: ~5-10 seconds per document
-- Extraction: ~10-15 seconds per document
-- **Total**: ~1 minute for complete pipeline
+- Classification: ~2-4 seconds per document (Gemini API)
+- Extraction: ~3-6 seconds per document (Gemini API)
+- **Total**: ~20-40 seconds for complete pipeline
 
-Scales linearly with document count (can parallelize for production).
+Scales linearly with document count (can parallelize for production). Gemini API provides faster response times compared to local models.
 
 ## 🐛 Troubleshooting
 
-**Ollama connection error**:
-```bash
-# Start Ollama server
-ollama serve
-```
+**API Key Error**:
+- Verify your API key in `src/config.py` is correct
+- Get a new key at [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
 
-**Model not found**:
-```bash
-ollama pull qwen2.5:7b
-```
+**Rate Limit Error**:
+- Gemini has free tier rate limits. Wait a moment and retry
+- Consider upgrading to Gemini API paid tier for higher limits
 
 **JSON parsing errors**:
 - Check prompt templates in `prompts/` directory

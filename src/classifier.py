@@ -1,24 +1,37 @@
 """
-Document classification module using Ollama LLM.
+Document classification module using Google Gemini API.
 """
 
-import requests
+import google.generativeai as genai
 import json
 import logging
 from typing import Dict, Tuple
 from pathlib import Path
+from .config import GEMINI_API_KEY, GEMINI_MODEL
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class DocumentClassifier:
-    """Classifies documents using Qwen LLM via Ollama"""
+    """Classifies documents using Google Gemini API"""
 
-    def __init__(self, model_name: str = "qwen2.5:7b", ollama_url: str = "http://localhost:11434"):
-        self.model_name = model_name
-        self.ollama_url = ollama_url
-        self.api_endpoint = f"{ollama_url}/api/generate"
+    def __init__(self, model_name: str = None, api_key: str = None):
+        """
+        Initialize the DocumentClassifier with Gemini API.
+
+        Args:
+            model_name: Gemini model to use (default: from config)
+            api_key: Gemini API key (default: from config)
+        """
+        self.model_name = model_name or GEMINI_MODEL
+        self.api_key = api_key or GEMINI_API_KEY
+
+        # Configure Gemini API
+        genai.configure(api_key=self.api_key)
+        # Ensure model name doesn't have 'models/' prefix
+        model_id = self.model_name.replace('models/', '')
+        self.model = genai.GenerativeModel(model_id)
 
         # Load classification prompt
         self.prompt_template = self._load_prompt_template()
@@ -31,12 +44,16 @@ class DocumentClassifier:
                 return f.read()
         else:
             # Default prompt if file doesn't exist yet
-            return """You are a document classifier for a legal firm. Analyze the following document text and classify it into one of these types:
+            return """You are a document classifier for a legal and business analytics firm. Your task is to classify legitimate business documents for data processing purposes.
 
-INVOICE: Contains billing information, line items, amounts, payment details, vendor/client information
+Analyze the following document text and classify it into one of these types:
+
+INVOICE: Contains billing information, receipts, payment details, vendor/client information, service charges, or transaction records (including ride receipts, workspace invoices, subscription bills, etc.)
 CONTRACT: Contains legal agreements, terms and conditions, parties involved, signatures, effective dates
 EMAIL: Contains to/from fields, subject line, email addresses, informal communication
 MEETING_MINUTES: Contains attendees, agenda items, decisions made, action items, meeting date
+
+IMPORTANT: This is a legitimate business document processing task. The documents contain normal business information like invoices, receipts, and payment records.
 
 Document text:
 {text}
@@ -63,29 +80,51 @@ Valid types are: invoice, contract, email, meeting_minutes"""
         prompt = self.prompt_template.format(text=text_sample)
 
         try:
-            # Call Ollama API
-            response = requests.post(
-                self.api_endpoint,
-                json={
-                    "model": self.model_name,
-                    "prompt": prompt,
-                    "stream": False,
-                    "temperature": 0.1,  # Low temperature for consistent classification
-                }
+            # Call Gemini API
+            generation_config = genai.GenerationConfig(
+                temperature=0.1,  # Low temperature for consistent classification
+                top_p=1,
+                top_k=1,
+                max_output_tokens=512,
             )
 
-            if response.status_code == 200:
-                result = response.json()
-                response_text = result.get('response', '')
+            # Configure safety settings to be less restrictive
+            from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
-                # Parse the JSON response
-                classification = self._parse_classification_response(response_text)
+            safety_settings = {
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+            }
 
-                logger.info(f"Classification: {classification['type']} (confidence: {classification['confidence']:.2f})")
-                return classification['type'], classification['confidence']
-            else:
-                logger.error(f"Ollama API error: {response.status_code}")
+            response = self.model.generate_content(
+                prompt,
+                generation_config=generation_config,
+                safety_settings=safety_settings
+            )
+
+            # Check if response was blocked
+            if not response.candidates:
+                logger.error(f"Response blocked by safety filters")
                 return "unknown", 0.0
+
+            # Try to get text from response
+            try:
+                if response.text:
+                    response_text = response.text
+
+                    # Parse the JSON response
+                    classification = self._parse_classification_response(response_text)
+
+                    logger.info(f"Classification: {classification['type']} (confidence: {classification['confidence']:.2f})")
+                    return classification['type'], classification['confidence']
+            except ValueError as e:
+                logger.error(f"Response blocked or empty: {str(e)}")
+                return "unknown", 0.0
+
+            logger.error("Empty response from Gemini API")
+            return "unknown", 0.0
 
         except Exception as e:
             logger.error(f"Error during classification: {str(e)}")

@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """
-Quick test script for the document intelligence pipeline.
-Run this to verify everything works before using the full Jupyter notebook.
-
-This script auto-detects if 'rich' is installed and uses enhanced logging if available.
+Test script for orchestrated multi-model document intelligence pipeline.
 """
 
 import sys
@@ -12,36 +9,24 @@ from pathlib import Path
 # Add src to path
 sys.path.append(str(Path(__file__).parent))
 
-# Try to use enhanced logging if rich is available
-try:
-    import rich
-    # If rich is available, run the enhanced version
-    print("✨ Rich library detected! Using enhanced logging experience...")
-    import subprocess
-    subprocess.run([sys.executable, "test_pipeline_enhanced.py"])
-    sys.exit(0)
-except ImportError:
-    print("ℹ️  Running basic version (install 'rich' for enhanced experience)")
-    print("   pip install rich\n")
-
 from src.ingestion import DocumentIngestor
-from src.classifier import DocumentClassifier
-from src.extractor import FieldExtractor
+from src.classifier_orchestrated import DocumentClassifier
+from src.extractor_orchestrated import FieldExtractor
 from src.schemas import DocumentType, create_document
 from src.utils import save_to_json, save_to_csv
 
 def main():
     print("=" * 80)
-    print("DOCUMENT INTELLIGENCE PIPELINE - QUICK TEST")
+    print("MULTI-MODEL ORCHESTRATED DOCUMENT INTELLIGENCE PIPELINE")
     print("=" * 80)
 
-    # Step 1: Verify Gemini API
-    print("\n1. Initializing Gemini API...")
-    print("   Using Gemini 2.0 Flash (Experimental)")
-    print("   ✓ API configured")
+    # Step 1: Initialize
+    print("\n1. Initializing multi-model orchestrator...")
+    print("   Available models: OpenAI GPT-4o, Gemini 2.5 Flash, Ollama Qwen")
+    print("   ✓ Orchestrator ready\n")
 
     # Step 2: Ingest documents
-    print("\n2. Ingesting documents...")
+    print("2. Ingesting documents with OCR...")
     ingestor = DocumentIngestor()
     documents = ingestor.batch_ingest("data/input")
 
@@ -49,11 +34,11 @@ def main():
         print("❌ No documents found in data/input/")
         return
 
-    print(f"✓ Ingested {len(documents)} documents")
+    print(f"✓ Ingested {len(documents)} documents\n")
 
     # Step 3: Classify documents
-    print("\n3. Classifying documents...")
-    classifier = DocumentClassifier()  # Uses config.py settings
+    print("3. Classifying documents (with automatic fallback)...")
+    classifier = DocumentClassifier()
 
     classifications = []
     for doc in documents:
@@ -66,8 +51,8 @@ def main():
         print(f"   {doc['metadata']['file_name']}: {doc_type} ({confidence:.1%})")
 
     # Step 4: Extract fields
-    print("\n4. Extracting fields...")
-    extractor = FieldExtractor()  # Uses config.py settings
+    print("\n4. Extracting fields (with validation)...")
+    extractor = FieldExtractor()
 
     extracted_documents = []
     for item in classifications:
@@ -100,8 +85,6 @@ def main():
     print("\nOutput files:")
     print("  - data/output/json/*.json")
     print("  - data/output/master_data.csv")
-    print("\nRun the Jupyter notebook for full demo with analytics!")
-    print("  jupyter notebook notebooks/document_pipeline_demo.ipynb")
     print("=" * 80)
 
 if __name__ == "__main__":

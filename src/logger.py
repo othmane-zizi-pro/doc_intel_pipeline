@@ -39,7 +39,7 @@ class PipelineLogger:
         console.print(
             Panel.fit(
                 "[bold cyan]🤖 DOCUMENT INTELLIGENCE PIPELINE[/bold cyan]\n"
-                "[dim]Powered by Qwen 2.5 (7B) + pdfplumber[/dim]",
+                "[dim]Powered by Google Gemini 2.0 + pdfplumber[/dim]",
                 border_style="cyan",
                 box=box.DOUBLE
             )
