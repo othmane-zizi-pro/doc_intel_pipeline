@@ -30,7 +30,9 @@ This pipeline demonstrates:
 
 - **Language**: Python 3.10+
 - **PDF Processing**: pdfplumber
-- **LLM**: Google Gemini (gemini-1.5-flash or gemini-1.5-pro)
+- **LLM Providers**: OpenAI GPT-4o, Google Gemini, Ollama (local)
+- **Orchestration**: LangGraph (for multi-model ensemble execution)
+- **Prompt Optimization**: DSPy
 - **Validation**: Pydantic
 - **Data Processing**: Pandas
 - **Interface**: Jupyter Notebook
@@ -146,10 +148,28 @@ The structured data enables:
 
 ## 🏗 Architecture
 
-### Current POC Pipeline:
+### Current POC Pipeline (Tier 3 - LangGraph):
 ```
-PDF Input → Text Extraction → Classification → Field Extraction → Validation → Storage
+PDF Input → OCR/Text Extraction → LangGraph Orchestrator
+                                        ↓
+                            ┌───────────┼───────────┐
+                            ↓           ↓           ↓
+                         OpenAI     Gemini      Ollama
+                            ↓           ↓           ↓
+                            └───────────┼───────────┘
+                                        ↓
+                              Ensemble Merge (Voting)
+                                        ↓
+                              DSPy Optimization
+                                        ↓
+                              Validation → Storage
 ```
+
+The **LangGraph orchestrator** enables:
+- **Parallel execution**: All LLM providers run simultaneously via LangGraph's `Send` API
+- **State management**: Typed state flows through the graph with automatic result aggregation
+- **Ensemble voting**: Classification results are merged using majority voting
+- **Field merging**: Extraction results are combined (voting for strings, averaging for numbers)
 
 ### Production-Ready Architecture:
 ```
@@ -174,12 +194,17 @@ Storage Layer
 
 ## 📝 Notes on Agentic AI
 
-**Current Implementation**: This POC uses a **tool-based LLM approach**, not autonomous agents. The LLM acts as a function for classification and extraction, with deterministic control flow managed by Python code.
+**Current Implementation**: This POC uses **LangGraph** for multi-model orchestration with an ensemble approach. The pipeline:
+- Leverages LangGraph's `StateGraph` for declarative workflow definition
+- Uses the `Send` API for parallel fan-out to multiple LLM providers
+- Aggregates results using reducer functions (voting, averaging)
+- Integrates DSPy for prompt optimization based on extraction history
 
-**For Production**: An agentic architecture could add:
-- Self-healing extraction (agents retry with different strategies)
-- Intelligent routing (agents choose optimal extraction method)
-- Continuous learning (agents improve prompts based on failures)
+**For Production**: The LangGraph architecture can be extended to add:
+- Self-healing extraction (conditional edges for retry with different strategies)
+- Intelligent routing (dynamic provider selection based on document type)
+- Human-in-the-loop (LangGraph checkpoints for review workflows)
+- Continuous learning (DSPy optimization with production feedback)
 
 ## 🔧 Customization
 

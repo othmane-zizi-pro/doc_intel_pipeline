@@ -1,16 +1,21 @@
 """
 Tier 3 Advanced Orchestrator: Ensemble + DSPy Optimization
+Now powered by LangGraph for orchestration.
 """
 
 import logging
-from typing import Dict, Any, Tuple, List, Optional
+from typing import Dict, Any, Tuple, List, Optional, Annotated
+from typing_extensions import TypedDict
 from openai import OpenAI
 import google.generativeai as genai
 import requests
 import json
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import dspy
 from collections import Counter
+import operator
+
+from langgraph.graph import StateGraph, START, END
+from langgraph.constants import Send
 
 from .config import (
     OPENAI_API_KEY, OPENAI_MODEL,
@@ -21,6 +26,38 @@ from .config import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+# ============================================================================
+# State Definitions for LangGraph
+# ============================================================================
+
+class ClassificationResult(TypedDict):
+    provider: str
+    doc_type: str
+    confidence: float
+
+
+class ExtractionResult(TypedDict):
+    provider: str
+    fields: Dict[str, Any]
+
+
+class ClassificationState(TypedDict):
+    text: str
+    prompt_template: str
+    results: Annotated[List[ClassificationResult], operator.add]
+
+
+class ExtractionState(TypedDict):
+    text: str
+    doc_type: str
+    prompt_template: str
+    results: Annotated[List[ExtractionResult], operator.add]
+
+
+# ============================================================================
+# Helper Classes (unchanged)
+# ============================================================================
 
 class FieldMerger:
     """Merges extraction results from multiple models using voting and quality scoring"""
@@ -173,23 +210,22 @@ class DSPyOptimizer:
         return score / total if total > 0 else 0
 
 
-class Tier3Orchestrator:
-    """Advanced orchestrator with ensemble extraction and DSPy optimization"""
+# ============================================================================
+# LLM Client Wrapper
+# ============================================================================
+
+class LLMClients:
+    """Manages LLM client connections"""
 
     def __init__(self):
-        self.clients = self._initialize_clients()
-        self.merger = FieldMerger()
-        self.dspy_optimizer = DSPyOptimizer()
-        self.extraction_history = []  # For DSPy learning
-        logger.info("✓ Tier 3 Orchestrator initialized (Ensemble + DSPy)")
+        self.clients = {}
+        self._initialize_clients()
 
-    def _initialize_clients(self) -> Dict[str, Any]:
+    def _initialize_clients(self):
         """Initialize all available LLM clients"""
-        clients = {}
-
         # OpenAI
         try:
-            clients["openai"] = {
+            self.clients["openai"] = {
                 "client": OpenAI(api_key=OPENAI_API_KEY),
                 "model": OPENAI_MODEL
             }
@@ -200,7 +236,7 @@ class Tier3Orchestrator:
         # Gemini
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            clients["gemini"] = {
+            self.clients["gemini"] = {
                 "client": genai.GenerativeModel(GEMINI_MODEL),
                 "model": GEMINI_MODEL
             }
@@ -212,7 +248,7 @@ class Tier3Orchestrator:
         try:
             response = requests.get(f"{OLLAMA_URL}/api/tags", timeout=2)
             if response.status_code == 200:
-                clients["ollama"] = {
+                self.clients["ollama"] = {
                     "url": OLLAMA_URL,
                     "model": OLLAMA_MODEL
                 }
@@ -220,59 +256,69 @@ class Tier3Orchestrator:
         except Exception:
             logger.info("Ollama not available")
 
-        return clients
+    def get_available_providers(self) -> List[str]:
+        return list(self.clients.keys())
 
-    def ensemble_extract(self, text: str, doc_type: str, prompt_template: str) -> Tuple[Dict[str, Any], List[str]]:
-        """
-        Extract using ALL models in parallel, then merge results.
+    def classify(self, provider: str, text: str, prompt_template: str) -> Tuple[str, float]:
+        """Classify using a single provider"""
+        prompt = prompt_template.format(text=text[:3000])
 
-        Returns:
-            (merged_result, providers_used)
-        """
-        logger.info(f"🚀 ENSEMBLE EXTRACTION: Running {len(self.clients)} models in parallel")
+        if provider == "openai":
+            client = self.clients["openai"]["client"]
+            model = self.clients["openai"]["model"]
 
-        results = []
-        providers_used = []
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are a document classifier. Respond only with valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
 
-        # Run all extractions in parallel
-        with ThreadPoolExecutor(max_workers=len(self.clients)) as executor:
-            future_to_provider = {
-                executor.submit(self._extract_single, text, doc_type, prompt_template, provider): provider
-                for provider in self.clients.keys()
+            result = json.loads(response.choices[0].message.content)
+            return result.get("type", "unknown"), float(result.get("confidence", 0.5))
+
+        elif provider == "gemini":
+            model = self.clients["gemini"]["client"]
+
+            generation_config = genai.GenerationConfig(temperature=0.1, max_output_tokens=512)
+            from google.generativeai.types import HarmCategory, HarmBlockThreshold
+            safety_settings = {
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             }
 
-            for future in as_completed(future_to_provider):
-                provider = future_to_provider[future]
-                try:
-                    result = future.result()
-                    if result and len(result) > 0:
-                        results.append(result)
-                        providers_used.append(provider)
-                        logger.info(f"  ✓ {provider}: {len(result)} fields extracted")
-                    else:
-                        logger.warning(f"  ✗ {provider}: No fields extracted")
-                except Exception as e:
-                    logger.error(f"  ✗ {provider}: {str(e)}")
+            response = model.generate_content(prompt, generation_config=generation_config, safety_settings=safety_settings)
 
-        # Merge all results
-        if not results:
-            logger.error("❌ All models failed extraction")
-            return {}, []
+            if not response.candidates or not response.text:
+                raise ValueError("Response blocked")
 
-        merged = self.merger.merge_extractions(results)
-        logger.info(f"✅ ENSEMBLE COMPLETE: Merged {len(results)} results from {providers_used}")
+            json_str = response.text[response.text.find('{'):response.text.rfind('}')+1]
+            result = json.loads(json_str)
+            return result.get("type", "unknown"), float(result.get("confidence", 0.5))
 
-        # Store for DSPy learning
-        self.extraction_history.append({
-            'text': text,
-            'doc_type': doc_type,
-            'merged_result': merged,
-            'individual_results': results
-        })
+        elif provider == "ollama":
+            url = self.clients["ollama"]["url"]
+            model = self.clients["ollama"]["model"]
 
-        return merged, providers_used
+            response = requests.post(
+                f"{url}/api/generate",
+                json={"model": model, "prompt": prompt, "stream": False, "temperature": 0.1},
+                timeout=30
+            )
 
-    def _extract_single(self, text: str, doc_type: str, prompt_template: str, provider: str) -> Dict[str, Any]:
+            response_text = response.json().get('response', '')
+            json_str = response_text[response_text.find('{'):response_text.rfind('}')+1]
+            result = json.loads(json_str)
+            return result.get("type", "unknown"), float(result.get("confidence", 0.5))
+
+        raise ValueError(f"Unknown provider: {provider}")
+
+    def extract(self, provider: str, text: str, prompt_template: str) -> Dict[str, Any]:
         """Extract using a single provider"""
         prompt = prompt_template.format(text=text)
 
@@ -336,42 +382,224 @@ class Tier3Orchestrator:
 
         raise ValueError(f"Unknown provider: {provider}")
 
+
+# ============================================================================
+# LangGraph Node Functions
+# ============================================================================
+
+# Global LLM clients instance (initialized lazily)
+_llm_clients: Optional[LLMClients] = None
+
+
+def get_llm_clients() -> LLMClients:
+    global _llm_clients
+    if _llm_clients is None:
+        _llm_clients = LLMClients()
+    return _llm_clients
+
+
+def classification_router(state: ClassificationState) -> List[Send]:
+    """Fan out to all available providers for parallel classification"""
+    clients = get_llm_clients()
+    providers = clients.get_available_providers()
+    logger.info(f"🚀 ENSEMBLE CLASSIFICATION: Routing to {len(providers)} providers via LangGraph")
+    return [
+        Send(f"classify_{provider}", state)
+        for provider in providers
+    ]
+
+
+def extraction_router(state: ExtractionState) -> List[Send]:
+    """Fan out to all available providers for parallel extraction"""
+    clients = get_llm_clients()
+    providers = clients.get_available_providers()
+    logger.info(f"🚀 ENSEMBLE EXTRACTION: Routing to {len(providers)} providers via LangGraph")
+    return [
+        Send(f"extract_{provider}", state)
+        for provider in providers
+    ]
+
+
+def classify_openai(state: ClassificationState) -> Dict:
+    """Classification node for OpenAI"""
+    clients = get_llm_clients()
+    try:
+        doc_type, confidence = clients.classify("openai", state["text"], state["prompt_template"])
+        logger.info(f"  ✓ openai: {doc_type} ({confidence:.1%})")
+        return {"results": [{"provider": "openai", "doc_type": doc_type, "confidence": confidence}]}
+    except Exception as e:
+        logger.error(f"  ✗ openai: {str(e)}")
+        return {"results": []}
+
+
+def classify_gemini(state: ClassificationState) -> Dict:
+    """Classification node for Gemini"""
+    clients = get_llm_clients()
+    try:
+        doc_type, confidence = clients.classify("gemini", state["text"], state["prompt_template"])
+        logger.info(f"  ✓ gemini: {doc_type} ({confidence:.1%})")
+        return {"results": [{"provider": "gemini", "doc_type": doc_type, "confidence": confidence}]}
+    except Exception as e:
+        logger.error(f"  ✗ gemini: {str(e)}")
+        return {"results": []}
+
+
+def classify_ollama(state: ClassificationState) -> Dict:
+    """Classification node for Ollama"""
+    clients = get_llm_clients()
+    try:
+        doc_type, confidence = clients.classify("ollama", state["text"], state["prompt_template"])
+        logger.info(f"  ✓ ollama: {doc_type} ({confidence:.1%})")
+        return {"results": [{"provider": "ollama", "doc_type": doc_type, "confidence": confidence}]}
+    except Exception as e:
+        logger.error(f"  ✗ ollama: {str(e)}")
+        return {"results": []}
+
+
+def extract_openai(state: ExtractionState) -> Dict:
+    """Extraction node for OpenAI"""
+    clients = get_llm_clients()
+    try:
+        fields = clients.extract("openai", state["text"], state["prompt_template"])
+        if fields and len(fields) > 0:
+            logger.info(f"  ✓ openai: {len(fields)} fields extracted")
+            return {"results": [{"provider": "openai", "fields": fields}]}
+        else:
+            logger.warning(f"  ✗ openai: No fields extracted")
+            return {"results": []}
+    except Exception as e:
+        logger.error(f"  ✗ openai: {str(e)}")
+        return {"results": []}
+
+
+def extract_gemini(state: ExtractionState) -> Dict:
+    """Extraction node for Gemini"""
+    clients = get_llm_clients()
+    try:
+        fields = clients.extract("gemini", state["text"], state["prompt_template"])
+        if fields and len(fields) > 0:
+            logger.info(f"  ✓ gemini: {len(fields)} fields extracted")
+            return {"results": [{"provider": "gemini", "fields": fields}]}
+        else:
+            logger.warning(f"  ✗ gemini: No fields extracted")
+            return {"results": []}
+    except Exception as e:
+        logger.error(f"  ✗ gemini: {str(e)}")
+        return {"results": []}
+
+
+def extract_ollama(state: ExtractionState) -> Dict:
+    """Extraction node for Ollama"""
+    clients = get_llm_clients()
+    try:
+        fields = clients.extract("ollama", state["text"], state["prompt_template"])
+        if fields and len(fields) > 0:
+            logger.info(f"  ✓ ollama: {len(fields)} fields extracted")
+            return {"results": [{"provider": "ollama", "fields": fields}]}
+        else:
+            logger.warning(f"  ✗ ollama: No fields extracted")
+            return {"results": []}
+    except Exception as e:
+        logger.error(f"  ✗ ollama: {str(e)}")
+        return {"results": []}
+
+
+# ============================================================================
+# LangGraph Builders
+# ============================================================================
+
+def build_classification_graph() -> StateGraph:
+    """Build the LangGraph for ensemble classification"""
+    graph = StateGraph(ClassificationState)
+
+    # Add nodes for each provider
+    graph.add_node("classify_openai", classify_openai)
+    graph.add_node("classify_gemini", classify_gemini)
+    graph.add_node("classify_ollama", classify_ollama)
+
+    # Add conditional edges from START to fan out to all providers
+    graph.add_conditional_edges(START, classification_router)
+
+    # All classification nodes go to END
+    graph.add_edge("classify_openai", END)
+    graph.add_edge("classify_gemini", END)
+    graph.add_edge("classify_ollama", END)
+
+    return graph.compile()
+
+
+def build_extraction_graph() -> StateGraph:
+    """Build the LangGraph for ensemble extraction"""
+    graph = StateGraph(ExtractionState)
+
+    # Add nodes for each provider
+    graph.add_node("extract_openai", extract_openai)
+    graph.add_node("extract_gemini", extract_gemini)
+    graph.add_node("extract_ollama", extract_ollama)
+
+    # Add conditional edges from START to fan out to all providers
+    graph.add_conditional_edges(START, extraction_router)
+
+    # All extraction nodes go to END
+    graph.add_edge("extract_openai", END)
+    graph.add_edge("extract_gemini", END)
+    graph.add_edge("extract_ollama", END)
+
+    return graph.compile()
+
+
+# ============================================================================
+# Main Orchestrator Class
+# ============================================================================
+
+class Tier3Orchestrator:
+    """Advanced orchestrator with ensemble extraction and DSPy optimization, powered by LangGraph"""
+
+    def __init__(self):
+        # Initialize LLM clients
+        global _llm_clients
+        _llm_clients = LLMClients()
+        self.clients = _llm_clients.clients
+
+        # Build LangGraph workflows
+        self.classification_graph = build_classification_graph()
+        self.extraction_graph = build_extraction_graph()
+
+        # Helpers
+        self.merger = FieldMerger()
+        self.dspy_optimizer = DSPyOptimizer()
+        self.extraction_history = []  # For DSPy learning
+
+        logger.info("✓ Tier 3 Orchestrator initialized (LangGraph + Ensemble + DSPy)")
+
     def classify_ensemble(self, text: str, prompt_template: str) -> Tuple[str, float, List[str]]:
         """
-        Classify using ensemble approach.
+        Classify using ensemble approach via LangGraph.
 
         Returns:
             (doc_type, confidence, providers_used)
         """
-        logger.info(f"🚀 ENSEMBLE CLASSIFICATION: Running {len(self.clients)} models in parallel")
+        # Run the classification graph
+        initial_state: ClassificationState = {
+            "text": text,
+            "prompt_template": prompt_template,
+            "results": []
+        }
 
-        classifications = []
-        providers_used = []
+        final_state = self.classification_graph.invoke(initial_state)
 
-        # Run all classifications in parallel
-        with ThreadPoolExecutor(max_workers=len(self.clients)) as executor:
-            future_to_provider = {
-                executor.submit(self._classify_single, text, prompt_template, provider): provider
-                for provider in self.clients.keys()
-            }
+        # Process results
+        results = final_state.get("results", [])
 
-            for future in as_completed(future_to_provider):
-                provider = future_to_provider[future]
-                try:
-                    doc_type, confidence = future.result()
-                    classifications.append((doc_type, confidence))
-                    providers_used.append(provider)
-                    logger.info(f"  ✓ {provider}: {doc_type} ({confidence:.1%})")
-                except Exception as e:
-                    logger.error(f"  ✗ {provider}: {str(e)}")
-
-        # Voting: most common classification
-        if not classifications:
+        if not results:
             return "unknown", 0.0, []
 
-        doc_types = [c[0] for c in classifications]
-        confidences = [c[1] for c in classifications]
+        # Extract data from results
+        providers_used = [r["provider"] for r in results]
+        doc_types = [r["doc_type"] for r in results]
+        confidences = [r["confidence"] for r in results]
 
+        # Voting: most common classification
         counter = Counter(doc_types)
         most_common_type = counter.most_common(1)[0][0]
         avg_confidence = sum(confidences) / len(confidences)
@@ -380,64 +608,47 @@ class Tier3Orchestrator:
 
         return most_common_type, avg_confidence, providers_used
 
-    def _classify_single(self, text: str, prompt_template: str, provider: str) -> Tuple[str, float]:
-        """Classify using a single provider"""
-        prompt = prompt_template.format(text=text[:3000])
+    def ensemble_extract(self, text: str, doc_type: str, prompt_template: str) -> Tuple[Dict[str, Any], List[str]]:
+        """
+        Extract using ALL models in parallel via LangGraph, then merge results.
 
-        if provider == "openai":
-            client = self.clients["openai"]["client"]
-            model = self.clients["openai"]["model"]
+        Returns:
+            (merged_result, providers_used)
+        """
+        # Run the extraction graph
+        initial_state: ExtractionState = {
+            "text": text,
+            "doc_type": doc_type,
+            "prompt_template": prompt_template,
+            "results": []
+        }
 
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "You are a document classifier. Respond only with valid JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.1,
-                response_format={"type": "json_object"}
-            )
+        final_state = self.extraction_graph.invoke(initial_state)
 
-            result = json.loads(response.choices[0].message.content)
-            return result.get("type", "unknown"), float(result.get("confidence", 0.5))
+        # Process results
+        results = final_state.get("results", [])
 
-        elif provider == "gemini":
-            model = self.clients["gemini"]["client"]
+        if not results:
+            logger.error("❌ All models failed extraction")
+            return {}, []
 
-            generation_config = genai.GenerationConfig(temperature=0.1, max_output_tokens=512)
-            from google.generativeai.types import HarmCategory, HarmBlockThreshold
-            safety_settings = {
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-            }
+        # Extract providers and fields
+        providers_used = [r["provider"] for r in results]
+        field_results = [r["fields"] for r in results]
 
-            response = model.generate_content(prompt, generation_config=generation_config, safety_settings=safety_settings)
+        # Merge all results
+        merged = self.merger.merge_extractions(field_results)
+        logger.info(f"✅ ENSEMBLE COMPLETE: Merged {len(results)} results from {providers_used}")
 
-            if not response.candidates or not response.text:
-                raise ValueError("Response blocked")
+        # Store for DSPy learning
+        self.extraction_history.append({
+            'text': text,
+            'doc_type': doc_type,
+            'merged_result': merged,
+            'individual_results': field_results
+        })
 
-            json_str = response.text[response.text.find('{'):response.text.rfind('}')+1]
-            result = json.loads(json_str)
-            return result.get("type", "unknown"), float(result.get("confidence", 0.5))
-
-        elif provider == "ollama":
-            url = self.clients["ollama"]["url"]
-            model = self.clients["ollama"]["model"]
-
-            response = requests.post(
-                f"{url}/api/generate",
-                json={"model": model, "prompt": prompt, "stream": False, "temperature": 0.1},
-                timeout=30
-            )
-
-            response_text = response.json().get('response', '')
-            json_str = response_text[response_text.find('{'):response_text.rfind('}')+1]
-            result = json.loads(json_str)
-            return result.get("type", "unknown"), float(result.get("confidence", 0.5))
-
-        raise ValueError(f"Unknown provider: {provider}")
+        return merged, providers_used
 
     def optimize_prompts_with_dspy(self, doc_type: str):
         """
